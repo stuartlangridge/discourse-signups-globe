@@ -12,6 +12,9 @@
     2. How the globe spins. In handle_one_frame, lat_0 and lon_0 define where on the globe the camera
        is pointed at. Compute it as a function of "counter", which is the frame number.
     3. Colours and text styles are all set on every frame in handle_one_frame, so tweak them as you please.
+    4. How big the resulting images are is set by the dpi parameter to plt.savefig. Note that if you want
+       to use avconv to create an mp4 out of it, then both height and width of the images must be divisible
+       by 2.
 
     Inspired by https://github.com/pierrrrrrre/PyGeoIpMap, at least because I had no idea that Basemap existed.
 
