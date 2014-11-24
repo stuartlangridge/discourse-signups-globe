@@ -18,6 +18,8 @@
 
     Inspired by https://github.com/pierrrrrrre/PyGeoIpMap, at least because I had no idea that Basemap existed.
 
+    Also includes download data for our show; get lines from your apache log and put them in bvdl.log.gz.
+
     @sil, November 2014.
     http://badvoltage.org
 """
@@ -76,11 +78,11 @@ users = nu
 
 EFFECTS = [
     { "color": "#ffffff", "alpha": 0.6, "s": 60 },
-    { "color": "#ffcccc", "alpha": 0.8, "s": 40 },
-    { "color": "#ff9999", "alpha": 0.8, "s": 10 },
-    { "color": "#ff6666", "alpha": 0.7, "s": 5 },
-    { "color": "#ff3333", "alpha": 0.6, "s": 2 },
-    { "color": "#ff0000", "alpha": 0.5, "s": 1 }
+    { "color": "#ffffcc", "alpha": 0.8, "s": 40 },
+    { "color": "#ffff99", "alpha": 0.8, "s": 10 },
+    { "color": "#ffff66", "alpha": 0.7, "s": 5 },
+    { "color": "#ffff33", "alpha": 0.6, "s": 2 },
+    { "color": "#ffff00", "alpha": 0.5, "s": 1 }
 ]
 
 END_AT = datetime.datetime.now().date()
@@ -99,10 +101,41 @@ for user in users:
         framecount += 1
         if ndate > END_AT: break
 
+# include downloads
+f = gzip.open('bvdl.log.gz', 'rb')
+file_content = f.read()
+f.close()
+dls = {}
+for line in file_content.split("\n"):
+    parts = line.split()
+    if len(parts) < 4:
+        print "Line fail", line
+        continue
+    ip = parts[0]
+    dt = parts[3].split("[")[1].split(":")[0]
+    ddt = datetime.datetime.strptime(dt, "%d/%b/%Y").date()
+    key = repr(ddt) + repr(ip) # stash in dict to remove more than one dl per ip per day
+    loc = gi.record_by_addr(ip)
+    if not loc:
+        print "ip fail", ip
+        continue
+    dls[key] = {"date": ddt, "loc": {"lat": loc["latitude"], "lon": loc["longitude"]}}
+
+for data in dls.values():
+    ndate = data["date"]
+    framecount = 0
+    while 1:
+        if ndate not in frames:
+            frames[ndate] = []
+        frames[ndate].append({"count": framecount, "loc": data["loc"]})
+        ndate += datetime.timedelta(days=1)
+        framecount += 1
+        if framecount >= len(EFFECTS): break
+
 START_LON = 20
 END_LON = -120
 LON_DIRECTION = -1 # rotate so a point on the globe goes to the east
-COMPLETE_LOOPS = 4 # number of full rotations in addition to moving between start and end
+COMPLETE_LOOPS = 2 # number of full rotations in addition to moving between start and end
 
 total_lon_traversed = (COMPLETE_LOOPS * 360)
 if LON_DIRECTION == -1:
@@ -121,19 +154,22 @@ def handle_one_frame(inp):
         points[point["count"]].append(point)
     frac = float(counter) / len(frames)
     lon_0 = ((START_LON + (frac * total_lon_traversed * LON_DIRECTION)) % 360) - 180
-    lat_0 = math.sin(3.141 * float(counter) / 90) * 20
+    lat_0 = math.sin(3.141 * float(counter) / 90) * 20 + 10
     #print lat_0; counter +=1; continue
     m = Basemap(projection='ortho',lat_0=lat_0,lon_0=lon_0,resolution='c')
     m.drawmapboundary(fill_color='black')
-    m.drawcoastlines(linewidth=0.25, color="#00ff00")
-    m.fillcontinents(color='black',lake_color='black')
+    m.drawcoastlines(linewidth=1.25, color="#006600")
+    m.drawcoastlines(linewidth=0.75, color="#00ff00")
+    m.drawcoastlines(linewidth=0.25, color="#aaffaa")
+    m.fillcontinents(color='#003300',lake_color='black')
+    m.drawcountries(linewidth=0.25, color="black")
     for effect, pointdata in points.items():
         lons = [x["loc"]["lon"] for x in pointdata]
         lats = [x["loc"]["lat"] for x in pointdata]
         x, y = m(lons, lats)
         m.scatter(x,y, marker='o', zorder=10, **EFFECTS[effect])
     plt.title(dt.strftime("%d %B %Y"), loc="left", family="monospace")
-    plt.savefig(outfile, dpi=146, bbox_inches='tight')
+    plt.savefig(outfile, dpi=146, bbox_inches='tight',facecolor="black")
     plt.close()
     print "Done frame %s of %s" % (counter, len(frames.keys()))
     #if outfile == "frame-2013-11-30.png": break

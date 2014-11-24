@@ -2,3 +2,4 @@ out-*.png
 out.mp4
 GeoLiteCity.dat
 dump.sql.gz
+bvdl.log.gz
